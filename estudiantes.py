@@ -45,10 +45,26 @@ df = df[df["ID NIVEL ACADÉMICO"].astype(str).str.contains("2")]
 df = df[df["AÑO"].between(2022, 2023)]
 
 
-# Sumar estudiantes masculinos y femeninos, buscando las columnas de forma flexible
-col_masc = buscar_columna(df, "MASCULINO")
-col_fem = buscar_columna(df, "FEMENINO")
-df["MATRICULADOS"] = df[[col_masc, col_fem]].fillna(0).sum(axis=1)
+# Sumar estudiantes, adaptándose a distintas estructuras de columnas
+try:
+    # Caso: columnas separadas para cada sexo
+    col_masc = buscar_columna(df, "MASCULINO")
+    col_fem = buscar_columna(df, "FEMENINO")
+    df["MATRICULADOS"] = df[[col_masc, col_fem]].fillna(0).sum(axis=1)
+except KeyError:
+    # Caso alternativo: una columna de sexo con valores masculino/femenino
+    col_sexo = buscar_columna(df, "SEXO")
+    try:
+        col_count = buscar_columna(df, "MATRICULADOS")
+    except KeyError:
+        col_count = buscar_columna(df, "ESTUDIANTES")
+
+    agrupadores = [c for c in df.columns if c not in [col_sexo, col_count]]
+    df = (
+        df.groupby(agrupadores, as_index=False)[col_count]
+        .sum()
+        .rename(columns={col_count: "MATRICULADOS"})
+    )
 
 
 # Filtrar solo los programas que están en ambos archivos
