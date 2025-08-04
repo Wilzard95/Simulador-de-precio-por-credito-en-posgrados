@@ -3,7 +3,8 @@ from pathlib import Path
 from unidecode import unidecode
 
 
-BASE_DIR = Path(__file__).resolve().parent
+# Directorio donde residen los archivos de entrada y salida
+BASE_DIR = Path(r"C:\Users\Nitro\Downloads\AAAAAAAA")
 
 
 def normaliza(texto):
@@ -13,6 +14,16 @@ def normaliza(texto):
         return ""
     texto = unidecode(str(texto).upper())
     return texto.replace(" ", "")
+
+
+def buscar_columna(df, objetivo):
+    """Encuentra la columna que contiene el texto indicado
+    ignorando mayúsculas, tildes y espacios."""
+    objetivo_norm = normaliza(objetivo)
+    for columna in df.columns:
+        if objetivo_norm in normaliza(columna):
+            return columna
+    raise KeyError(f"No se encontró una columna que contenga '{objetivo}'.")
 
 
 # Cargar los programas del CSV
@@ -34,8 +45,10 @@ df = df[df["ID NIVEL ACADÉMICO"].astype(str).str.contains("2")]
 df = df[df["AÑO"].between(2022, 2023)]
 
 
-# Sumar estudiantes masculinos y femeninos
-df["MATRICULADOS"] = df[["MASCULINO", "FEMENINO"]].fillna(0).sum(axis=1)
+# Sumar estudiantes masculinos y femeninos, buscando las columnas de forma flexible
+col_masc = buscar_columna(df, "MASCULINO")
+col_fem = buscar_columna(df, "FEMENINO")
+df["MATRICULADOS"] = df[[col_masc, col_fem]].fillna(0).sum(axis=1)
 
 
 # Filtrar solo los programas que están en ambos archivos
