@@ -18,7 +18,7 @@ nombres_csv = programas_csv["PROGRAMA_NORM"].unique()
 
 
 # Cargar el Excel grande
-df = pd.read_excel(r"C:\Users\Nitro\Downloads\AAAAAAAA\SNIES-POSGRADO.xlsx", engine="openpyxl")
+df = pd.read_excel(r"C:\Users\Nitro\Downloads\AAAAAAAA\SNIES-POSGRADO-UPTC.xlsx", engine="openpyxl")
 df["PROGRAMA_NORM"] = df["PROGRAMA ACADÉMICO"].apply(normaliza)
 
 
