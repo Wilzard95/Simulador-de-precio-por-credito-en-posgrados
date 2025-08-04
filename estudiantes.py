@@ -28,7 +28,8 @@ def buscar_columna(df, objetivo):
 
 # Cargar los programas del CSV
 programas_csv = pd.read_csv(BASE_DIR / "Sube_baja.csv")
-programas_csv["PROGRAMA_NORM"] = programas_csv["PROGRAMA"].apply(normaliza)
+col_prog = buscar_columna(programas_csv, "PROGRAMA")
+programas_csv["PROGRAMA_NORM"] = programas_csv[col_prog].apply(normaliza)
 nombres_csv = programas_csv["PROGRAMA_NORM"].unique()
 
 
