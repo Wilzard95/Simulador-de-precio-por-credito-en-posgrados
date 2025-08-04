@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador de Cobro por Crédito – UPTC</title>
+<!-- Chart.js para gráficas -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- PapaParse para leer CSV -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --rojo: #ba1818;
+    --verde: #1fae26;
+    --azul: #182ed4;
+    --amarillo: #eba22c;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  body { margin: 1rem; }
+  h1 { margin-top: 0; }
+  #panel-flex { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  #config, #criterios, #factorPanel { border: 1px solid #ccc; padding: 1rem; border-radius: .5rem; margin-bottom: 1rem; }
+  fieldset { border: 1px solid #ccc; padding: .5rem 1rem; margin-bottom: .5rem; }
+  legend { font-weight: bold; }
+  label { display:block; margin: .25rem 0; }
+  input[type="number"] { width: 8rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { border: 1px solid #ddd; padding: .25rem .5rem; text-align: left; }
+  th { background:#eee; position: sticky; top:0; z-index:1; }
+  .bar { height: 1rem; border-radius: .25rem; }
+  #programSection { display:flex; gap:1rem; }
+  #programWrapper { max-height: 55vh; overflow-y: auto; flex:1; }
+</style>
+</head>
+<body>
+<img src="Formulario_forms.png" alt="Logo" style="height:300px;display:block;margin-bottom:1rem;">
+<h1>Simulador de Cobro por Crédito – UPTC</h1>
+<div id="panel-flex">
+  <!-- Configuración global -->
+  <div id="config">
+    <h2>Parámetros globales</h2>
+    <label>META anual (COP): <input type="number" id="meta" step="1000000000" value="37000000000"></label>
+    <fieldset>
+      <legend>Valor base por crédito (COP)</legend>
+      <table>
+        <thead><tr><th>Nivel</th><th>Modalidad</th><th>Valor</th></tr></thead>
+        <tbody id="baseTable"></tbody>
+      </table>
+    </fieldset>
+    <label>Cargar CSV "Sube o baja": <input type="file" id="csvInput" accept=".csv"></label>
+    <button id="resetBtn">Reiniciar valores</button>
+  </div>
+  <!-- Ponderaciones -->
+  <div id="criterios">
+    <h2>Ponderación de criterios (%)</h2>
+    <label>Estudiantes: <input type="number" id="wEst" value="35" min="0" max="100"></label>
+    <label>Profesores de planta: <input type="number" id="wPlanta" value="35" min="0" max="100"></label>
+    <label>Competitividad: <input type="number" id="wComp" value="20" min="0" max="100"></label>
+    <label>Tipo (Investigación/Profundización): <input type="number" id="wTipo" value="10" min="0" max="100"></label>
+  </div>
+</div>
+<!-- Gráficas principales -->
+<canvas id="balanceChart" height="70"></canvas>
+<canvas id="nivelesChart" height="90" style="margin-top:2rem"></canvas>
+
+
+  <!-- Panel de factores manuales GLOBAL -->
+  <div id="factorPanel">
+    <h2>Factores manuales globales (0,8 – 1,5)</h2>
+    <label>Estudiantes: <input type="number" id="fEstGlobal" value="1" step="0.1" min="0.5" max="2"></label>
+    <label>Profesores de planta: <input type="number" id="fPlantaGlobal" value="1" step="0.1" min="0.5" max="2"></label>
+    <label>Competitividad: <input type="number" id="fCompGlobal" value="1" step="0.1" min="0.5" max="2"></label>
+    <label>Tipo programa: <input type="number" id="fTipoGlobal" value="1" step="0.1" min="0.5" max="2"></label>
+    <label>Créditos/Est.: <input type="number" id="creditosEstGlobal" value="12" min="1" max="40"></label>
+  </div>
+
+  <!-- Tabla de programas -->
+  <div id="programWrapper">
+    <table id="programTable">
+      <thead>
+        <tr>
+          <th>Programa</th>
+          <th>Nivel</th>
+          <th>Modalidad</th>
+          <th>Valor crédito (actual)</th>
+          <th>Valor crédito AJUSTADO</th>
+          <th>Variación %</th>
+          <th>N° Estudiantes</th>
+          <th>Créditos/Est.</th>
+          <th>Factores<br><small>(Est, Planta, Comp, Tipo)</small></th>
+          <th>Recaudo prog. (COP)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Banner resumen de programas -->
+<div id="resumenBanner" style="margin-top:2rem; font-size:1.1em;"></div>
+
+<script>
+// =================== CONFIGURACIÓN Y DATOS ===================
+const defaultBases={
+  Doctorado:{Presencial:1000000,Virtual:900000,Híbrida:950000},
+  Maestría:{Presencial:700000,Virtual:600000,Híbrida:650000},
+  Especialización:{Presencial:500000,Virtual:400000,Híbrida:450000}
+};
+let baseValues=JSON.parse(JSON.stringify(defaultBases));
+let weights={ est:0.35, planta:0.35, comp:0.20, tipo:0.10 };
+let programs=[];
+
+// =================== TABLAS Y LISTENERS ===================
+autoBuildBaseTable();
+const metaInput=document.getElementById('meta');
+['wEst','wPlanta','wComp','wTipo'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',e=>{
+     const key=id.replace('w','').toLowerCase();
+     weights[key]=e.target.value/100; recalc();
+  });
+});
+document.getElementById('resetBtn').addEventListener('click',resetAll);
+document.getElementById('csvInput').addEventListener('change',handleCSV);
+metaInput.addEventListener('input', () => {
+  updateBalanceChart(programs.reduce((sum, p) => sum + (p.recaudo || 0), 0));
+});
+
+// =================== FUNCIÓN DE PONDERACIÓN ===================
+function manualWeightedFactor(p){
+  return weights.est*p.factores.est + weights.planta*p.factores.planta + weights.comp*p.factores.comp + weights.tipo*p.factores.tipo;
+}
+
+// =================== RECÁLCULO PRINCIPAL ===================
+function recalc(){
+  const tbody=document.querySelector('#programTable tbody');
+  let totalRecaudo=0;
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    const idx=+tr.dataset.idx;
+    const p=programs[idx];
+    p.estudiantes=+tr.querySelector('.est').value;
+    p.creditosEst=+tr.querySelector('.cred').value;
+    // Actualiza factores individuales desde inputs
+    p.factores.est=+tr.querySelector('.fEstInd').value;
+    p.factores.planta=+tr.querySelector('.fPlantaInd').value;
+    p.factores.comp=+tr.querySelector('.fCompInd').value;
+    p.factores.tipo=+tr.querySelector('.fTipoInd').value;
+
+    const base=baseValues[p.Nivel][p.Modalidad];
+    const fTotal=manualWeightedFactor(p);
+
+    p.valorAjustado=Math.round(base*fTotal);
+    p.varPct=((p.valorAjustado-p.ValorCreditoActual)/p.ValorCreditoActual)*100;
+    p.recaudo=p.valorAjustado*p.creditosEst*p.estudiantes;
+    totalRecaudo+=p.recaudo;
+
+    // UI updates
+    tr.querySelector('.valorActual').textContent=p.ValorCreditoActual.toLocaleString('es-CO');
+    tr.querySelector('.valorAjustado').textContent=p.valorAjustado.toLocaleString('es-CO');
+    const bar=tr.querySelector('.bar');
+    const abs=Math.min(100,Math.abs(p.varPct));
+    bar.style.width=abs+'%';
+    bar.style.background=p.varPct>=0? 'var(--rojo)':'var(--verde)';
+    tr.querySelector('.varPct').textContent=p.varPct.toFixed(1)+' %';
+    tr.querySelector('.recaudo').textContent=Math.round(p.recaudo).toLocaleString('es-CO');
+  });
+  updateBalanceChart(totalRecaudo);
+  updateNivelesChart();
+  updateResumenBanner();
+}
+
+// =================== CONSTRUIR TABLA DE PROGRAMAS ===================
+function buildProgramTable(){
+  const tbody=document.querySelector('#programTable tbody');
+  tbody.innerHTML='';
+  // Sincroniza los valores globales con los programas al construir la tabla
+  ['est','planta','comp','tipo'].forEach(key=>{
+    const val = +document.getElementById('f'+key.charAt(0).toUpperCase()+key.slice(1)+'Global').value;
+    programs.forEach(p => { p.factores[key] = val; });
+  });
+  programs.forEach((p,i)=>{
+    const tr=document.createElement('tr');
+    tr.dataset.idx=i;
+    tr.innerHTML=`<td>${p.Programa}</td>
+      <td>${p.Nivel}</td>
+      <td>${p.Modalidad}</td>
+      <td class="valorActual"></td>
+      <td class="valorAjustado"></td>
+      <td><div class="bar"></div><span class="varPct" style="margin-left:.25rem"></span></td>
+      <td><input type="number" class="est" min="0" value="${p.estudiantes}"></td>
+      <td><input type="number" class="cred" min="${p.minCred}" max="${p.maxCred}" value="${p.creditosEst}"></td>
+      <td>
+        <input type="number" class="fEstInd" value="${p.factores.est}" step="0.1" min="0.5" max="2" style="width:2.5em;">
+        <input type="number" class="fPlantaInd" value="${p.factores.planta}" step="0.1" min="0.5" max="2" style="width:2.5em;">
+        <input type="number" class="fCompInd" value="${p.factores.comp}" step="0.1" min="0.5" max="2" style="width:2.5em;">
+        <input type="number" class="fTipoInd" value="${p.factores.tipo}" step="0.1" min="0.5" max="2" style="width:2.5em;">
+      </td>
+      <td class="recaudo"></td>`;
+    tbody.appendChild(tr);
+    // listeners
+    tr.querySelector('.est').addEventListener('input',recalc);
+    tr.querySelector('.cred').addEventListener('input',recalc);
+    tr.querySelector('.fEstInd').addEventListener('input',e=>{
+      p.factores.est=+e.target.value; recalc();
+    });
+    tr.querySelector('.fPlantaInd').addEventListener('input',e=>{
+      p.factores.planta=+e.target.value; recalc();
+    });
+    tr.querySelector('.fCompInd').addEventListener('input',e=>{
+      p.factores.comp=+e.target.value; recalc();
+    });
+    tr.querySelector('.fTipoInd').addEventListener('input',e=>{
+      p.factores.tipo=+e.target.value; recalc();
+    });
+  });
+  recalc();
+}
+
+// =================== TABLA DE VALORES BASE ===================
+function autoBuildBaseTable(){
+  const tbody=document.getElementById('baseTable');
+  tbody.innerHTML='';
+  ['Doctorado','Maestría','Especialización'].forEach(nivel=>{
+    ['Presencial','Virtual','Híbrida'].forEach(mod=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${nivel}</td><td>${mod}</td><td><input type="number" min="0" value="${baseValues[nivel][mod]}" data-nivel="${nivel}" data-mod="${mod}"></td>`;
+      tbody.appendChild(tr);
+      tr.querySelector('input').addEventListener('input',e=>{
+         const n=e.target.dataset.nivel; const m=e.target.dataset.mod;
+         baseValues[n][m]=+e.target.value; recalc();
+      });
+    });
+  });
+}
+
+// =================== GRÁFICAS ===================
+let balanceChart,nivelesChart;
+function getColor(varName) {
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function initCharts(){
+  const azul = getColor('--azul');
+  const amarillo = getColor('--amarillo');
+  balanceChart=new Chart(document.getElementById('balanceChart'),{
+    type:'bar',
+    data:{labels:['META','Recaudo'],datasets:[{data:[+metaInput.value,0],backgroundColor:[azul,amarillo]}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>v.toLocaleString('es-CO')}}}}
+  });
+  nivelesChart=new Chart(document.getElementById('nivelesChart'),{
+    type:'bar',
+    data:{labels:['Doctorado','Maestría','Especialización'],datasets:[{data:[0,0,0]}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>v+' %'}}}}
+  });
+}
+function updateBalanceChart(total){
+  balanceChart.data.datasets[0].data=[+metaInput.value,total];
+  balanceChart.update();
+}
+function updateNivelesChart(){
+  const rojo = getColor('--rojo');
+  const verde = getColor('--verde');
+  const agg={Doctorado:[],Maestría:[],Especialización:[]};
+  let colors = [];
+  programs.forEach(p=>agg[p.Nivel].push(p.varPct));
+  ['Doctorado','Maestría','Especialización'].forEach((n,i)=>{
+    const arr=agg[n];
+    const avg=arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;
+    nivelesChart.data.datasets[0].data[i]=avg.toFixed(1);
+    colors[i] = avg >= 0 ? rojo : verde;
+  });
+  nivelesChart.data.datasets[0].backgroundColor = colors;
+  nivelesChart.update();
+}
+
+// =================== LEER CSV ===================
+function handleCSV(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  Papa.parse(file,{header:true,skipEmptyLines:true,complete:function(res){
+    programs = res.data.map(row => {
+      const nivel = row['Nivel'] || row['Nivel formación'] || row['Nivel de formación'] || 'Desconocido';
+      // Normaliza modalidad
+      let modalidad = row['Modalidad'] || row['MODALIDAD'] || 'Presencial';
+      modalidad = modalidad.trim().toLowerCase();
+      if (modalidad.startsWith('pres')) modalidad = 'Presencial';
+      else if (modalidad.startsWith('vir')) modalidad = 'Virtual';
+      else if (modalidad.startsWith('hib')) modalidad = 'Híbrida';
+      else modalidad = 'Presencial'; // valor por defecto
+
+      const nCredMin = (nivel === 'Especialización' ? 6 : 8);
+      return {
+        Programa: row['Programa'] || row['PROGRAMA'] || row['Facultad y Programa'] || row['Programa Académico'],
+        Nivel: nivel,
+        Modalidad: modalidad,
+        ValorCreditoActual: parseFloat(
+  (row['Valorxcrédito'] || '1000000')
+    .toString()
+    .replace(/[$\s.]/g, '')   // quita $ y puntos y espacios
+    .replace(',', '.')        // cambia coma decimal por punto
+) || 1000000,
+        PorcentajePlanta: +(row['%Planta'] || 50),
+        Competitividad: (row['Competitividad'] || 'Media'),
+        TipoPrograma: (row['Tipo'] || 'Profundización'),
+        estudiantes: +row['N° EST'] || +row['N° ESTUDIANTES'] || 12,
+        creditosEst: 12,
+        minCred: nCredMin,
+        maxCred: 24,
+        varPct: 0,
+        factores: { est: 1, planta: 1, comp: 1, tipo: 1 }
+      };
+    });
+    buildProgramTable();
+  }});
+}
+
+// =================== RESET GENERAL ===================
+function resetAll(){
+  baseValues=JSON.parse(JSON.stringify(defaultBases));
+  autoBuildBaseTable();
+  ['wEst','wPlanta','wComp','wTipo'].forEach(id=>document.getElementById(id).value={wEst:35,wPlanta:35,wComp:20,wTipo:10}[id]);
+  weights={ est:0.35,planta:0.35,comp:0.20,tipo:0.10 };
+  // Reinicia factores globales y sincroniza con todos los programas
+  ['fEstGlobal','fPlantaGlobal','fCompGlobal','fTipoGlobal'].forEach(id=>{
+    document.getElementById(id).value=1;
+  });
+  programs.forEach(p=>{
+    p.factores={ est:1, planta:1, comp:1, tipo:1 };
+  });
+  buildProgramTable();
+  recalc();
+}
+initCharts();
+
+// =================== FACTORES GLOBALES: ACTUALIZA TODOS ===================
+['fEstGlobal','fPlantaGlobal','fCompGlobal','fTipoGlobal'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',e=>{
+    const key = id.replace('f','').replace('Global','').toLowerCase();
+    // Actualiza en los datos
+    programs.forEach(p => { p.factores[key] = +e.target.value; });
+    // Actualiza en la tabla
+    document.querySelectorAll('.f'+key.charAt(0).toUpperCase()+key.slice(1)+'Ind').forEach(input=>{
+      input.value = e.target.value;
+    });
+    recalc();
+  });
+});
+
+// Sincroniza Créditos/Est. global con todos los programas y la tabla
+document.getElementById('creditosEstGlobal').addEventListener('input', e => {
+  const val = +e.target.value;
+  programs.forEach(p => { p.creditosEst = val; });
+  document.querySelectorAll('.cred').forEach(input => {
+    input.value = val;
+  });
+  recalc();
+});
+
+function updateResumenBanner() {
+  const niveles = ['Doctorado', 'Maestría', 'Especialización'];
+  let total = programs.length;
+  let html = `<b>Total de programas:</b> ${total}<br><div style="display:flex;gap:2rem;">`;
+
+  let totalSuben = 0, totalBajan = 0;
+
+  niveles.forEach(nivel => {
+    const list = programs.filter(p => p.Nivel === nivel);
+    const suben = list.filter(p => p.varPct > 0).length;
+    const bajan = list.filter(p => p.varPct < 0).length;
+    totalSuben += suben;
+    totalBajan += bajan;
+    html += `
+      <div>
+        <b>${nivel}:</b><br>
+        <span style="display:inline-block;min-width:2.5em;">Suben</span>
+        <span style="background:var(--rojo);color:#fff;padding:2px 8px;border-radius:8px;display:inline-block;min-width:2em;text-align:center;">${suben}</span>
+        <br>
+        <span style="display:inline-block;min-width:2.5em;">Bajan</span>
+        <span style="background:var(--verde);color:#fff;padding:2px 8px;border-radius:8px;display:inline-block;min-width:2em;text-align:center;">${bajan}</span>
+      </div>
+    `;
+  });
+
+  html += `</div>
+    <div style="margin-top:1rem;">
+      <b>Total que suben:</b> <span style="background:var(--rojo);color:#fff;padding:2px 12px;border-radius:8px;display:inline-block;min-width:2em;text-align:center;">${totalSuben}</span>
+      &nbsp;&nbsp;
+      <b>Total que bajan:</b> <span style="background:var(--verde);color:#fff;padding:2px 12px;border-radius:8px;display:inline-block;min-width:2em;text-align:center;">${totalBajan}</span>
+    </div>
+  `;
+  document.getElementById('resumenBanner').innerHTML = html;
+}
+</script>
+</body>
+</html>
