@@ -175,11 +175,6 @@ function recalc(){
 function buildProgramTable(){
   const tbody=document.querySelector('#programTable tbody');
   tbody.innerHTML='';
-  // Sincroniza los valores globales con los programas al construir la tabla
-  ['est','planta','comp','tipo'].forEach(key=>{
-    const val = +document.getElementById('f'+key.charAt(0).toUpperCase()+key.slice(1)+'Global').value;
-    programs.forEach(p => { p.factores[key] = val; });
-  });
   programs.forEach(p=>{ p.creditosEst = creditosGlobal[p.Nivel]; });
   programs.forEach((p,i)=>{
     const tr=document.createElement('tr');
@@ -305,13 +300,18 @@ function handleCSV(e){
 ) || 1000000,
         PorcentajePlanta: +(row['%Planta'] || 50),
         Competitividad: (row['Competitividad'] || 'Media'),
-        TipoPrograma: (row['Tipo'] || 'Profundización'),
+        TipoPrograma: row['TipoPrograma'] || row['Tipo Programa'] || row['Tipo_programa'] || 'Profundización',
         estudiantes: +row['N° EST'] || +row['N° ESTUDIANTES'] || 12,
         creditosEst: creditosGlobal[nivel] || 12,
         minCred: nCredMin,
         maxCred: 24,
         varPct: 0,
-        factores: { est: 1, planta: 1, comp: 1, tipo: 1 }
+        factores: {
+          est: parseFloat((row['Est'] ?? '1').toString().replace(',', '.')) || 1,
+          planta: parseFloat((row['Planta'] ?? '1').toString().replace(',', '.')) || 1,
+          comp: parseFloat((row['Comp'] ?? '1').toString().replace(',', '.')) || 1,
+          tipo: parseFloat((row['Tipo'] ?? '1').toString().replace(',', '.')) || 1
+        }
       };
     });
     buildProgramTable();
