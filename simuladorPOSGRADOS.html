@@ -76,6 +76,8 @@
     <label>Créditos/Est. Especialización: <input type="number" id="credEspGlobal" value="12" min="1" max="40"></label>
   </div>
 
+  <button id="randomFactorsBtn">Generar factores aleatorios</button>
+
   <!-- Tabla de programas -->
   <div id="programWrapper">
     <table id="programTable">
@@ -373,6 +375,25 @@ Object.entries(creditInputs).forEach(([nivel,input])=>{
     recalc();
   });
 });
+
+// =================== BOTÓN PARA FACTORES ALEATORIOS ===================
+document.getElementById('randomFactorsBtn').addEventListener('click', randomizeGlobalFactors);
+
+function randomizeGlobalFactors(){
+  const randBetween=(min,max)=>Math.round((Math.random()*(max-min)+min)*10)/10;
+  const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+  const values={
+    est: randBetween(0.8,1.5),
+    planta: randBetween(0.8,1.5),
+    comp: pick([0.8,1,1.5]),
+    tipo: pick([0.8,1])
+  };
+  Object.entries(values).forEach(([key,val])=>{
+    const input=document.getElementById('f'+key.charAt(0).toUpperCase()+key.slice(1)+'Global');
+    input.value=val;
+    input.dispatchEvent(new Event('input'));
+  });
+}
 
 function updateResumenBanner() {
   const niveles = ['Doctorado', 'Maestría', 'Especialización'];
