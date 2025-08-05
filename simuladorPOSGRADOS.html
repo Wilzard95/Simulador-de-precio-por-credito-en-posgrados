@@ -377,22 +377,25 @@ Object.entries(creditInputs).forEach(([nivel,input])=>{
 });
 
 // =================== BOTÓN PARA FACTORES ALEATORIOS ===================
-document.getElementById('randomFactorsBtn').addEventListener('click', randomizeGlobalFactors);
+document.getElementById('randomFactorsBtn').addEventListener('click', randomizeProgramFactors);
 
-function randomizeGlobalFactors(){
+function randomizeProgramFactors(){
   const randBetween=(min,max)=>Math.round((Math.random()*(max-min)+min)*10)/10;
   const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
-  const values={
-    est: randBetween(0.8,1.5),
-    planta: randBetween(0.8,1.5),
-    comp: pick([0.8,1,1.5]),
-    tipo: pick([0.8,1])
-  };
-  Object.entries(values).forEach(([key,val])=>{
-    const input=document.getElementById('f'+key.charAt(0).toUpperCase()+key.slice(1)+'Global');
-    input.value=val;
-    input.dispatchEvent(new Event('input'));
+  programs.forEach((p,i)=>{
+    p.factores.est=randBetween(0.8,1.5);
+    p.factores.planta=randBetween(0.8,1.5);
+    p.factores.comp=pick([0.8,1,1.5]);
+    p.factores.tipo=pick([0.8,1]);
+    const tr=document.querySelector(`#programTable tbody tr[data-idx="${i}"]`);
+    if(tr){
+      tr.querySelector('.fEstInd').value=p.factores.est;
+      tr.querySelector('.fPlantaInd').value=p.factores.planta;
+      tr.querySelector('.fCompInd').value=p.factores.comp;
+      tr.querySelector('.fTipoInd').value=p.factores.tipo;
+    }
   });
+  recalc();
 }
 
 function updateResumenBanner() {
