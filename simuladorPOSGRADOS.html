@@ -177,7 +177,8 @@ function recalc(){
 function buildProgramTable(){
   const tbody=document.querySelector('#programTable tbody');
   tbody.innerHTML='';
-  programs.forEach(p=>{ p.creditosEst = creditosGlobal[p.Nivel]; });
+  // Mantiene el valor de créditos cargado desde el CSV; si no existe, usa el global
+  programs.forEach(p=>{ if(!p.creditosEst) p.creditosEst = creditosGlobal[p.Nivel]; });
   programs.forEach((p,i)=>{
     const tr=document.createElement('tr');
     tr.dataset.idx=i;
@@ -304,7 +305,7 @@ function handleCSV(e){
         Competitividad: (row['Competitividad'] || 'Media'),
         TipoPrograma: row['TipoPrograma'] || row['Tipo Programa'] || row['Tipo_programa'] || 'Profundización',
         estudiantes: +row['N° EST'] || +row['N° ESTUDIANTES'] || 12,
-        creditosEst: creditosGlobal[nivel] || 12,
+        creditosEst: parseFloat((row['PromdeCreditos'] ?? '').toString().replace(',', '.')) || 12,
         minCred: nCredMin,
         maxCred: 24,
         varPct: 0,
