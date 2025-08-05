@@ -71,7 +71,9 @@
     <label>Profesores de planta: <input type="number" id="fPlantaGlobal" value="1" step="0.1" min="0.5" max="2"></label>
     <label>Competitividad: <input type="number" id="fCompGlobal" value="1" step="0.1" min="0.5" max="2"></label>
     <label>Tipo programa: <input type="number" id="fTipoGlobal" value="1" step="0.1" min="0.5" max="2"></label>
-    <label>Créditos/Est.: <input type="number" id="creditosEstGlobal" value="12" min="1" max="40"></label>
+    <label>Créditos/Est. Doctorado: <input type="number" id="credDocGlobal" value="12" min="1" max="40"></label>
+    <label>Créditos/Est. Maestría: <input type="number" id="credMaesGlobal" value="12" min="1" max="40"></label>
+    <label>Créditos/Est. Especialización: <input type="number" id="credEspGlobal" value="12" min="1" max="40"></label>
   </div>
 
   <!-- Tabla de programas -->
@@ -108,6 +110,7 @@ const defaultBases={
 };
 let baseValues=JSON.parse(JSON.stringify(defaultBases));
 let weights={ est:0.35, planta:0.35, comp:0.20, tipo:0.10 };
+let creditosGlobal={Doctorado:12,Maestría:12,Especialización:12};
 let programs=[];
 
 // =================== TABLAS Y LISTENERS ===================
@@ -177,9 +180,11 @@ function buildProgramTable(){
     const val = +document.getElementById('f'+key.charAt(0).toUpperCase()+key.slice(1)+'Global').value;
     programs.forEach(p => { p.factores[key] = val; });
   });
+  programs.forEach(p=>{ p.creditosEst = creditosGlobal[p.Nivel]; });
   programs.forEach((p,i)=>{
     const tr=document.createElement('tr');
     tr.dataset.idx=i;
+    tr.dataset.nivel=p.Nivel;
     tr.innerHTML=`<td>${p.Programa}</td>
       <td>${p.Nivel}</td>
       <td>${p.Modalidad}</td>
@@ -302,7 +307,7 @@ function handleCSV(e){
         Competitividad: (row['Competitividad'] || 'Media'),
         TipoPrograma: (row['Tipo'] || 'Profundización'),
         estudiantes: +row['N° EST'] || +row['N° ESTUDIANTES'] || 12,
-        creditosEst: 12,
+        creditosEst: creditosGlobal[nivel] || 12,
         minCred: nCredMin,
         maxCred: 24,
         varPct: 0,
@@ -319,12 +324,17 @@ function resetAll(){
   autoBuildBaseTable();
   ['wEst','wPlanta','wComp','wTipo'].forEach(id=>document.getElementById(id).value={wEst:35,wPlanta:35,wComp:20,wTipo:10}[id]);
   weights={ est:0.35,planta:0.35,comp:0.20,tipo:0.10 };
-  // Reinicia factores globales y sincroniza con todos los programas
+  // Reinicia factores y créditos globales y sincroniza con todos los programas
   ['fEstGlobal','fPlantaGlobal','fCompGlobal','fTipoGlobal'].forEach(id=>{
     document.getElementById(id).value=1;
   });
+  Object.entries({Doctorado:'credDocGlobal','Maestría':'credMaesGlobal','Especialización':'credEspGlobal'}).forEach(([nivel,id])=>{
+    document.getElementById(id).value=12;
+    creditosGlobal[nivel]=12;
+  });
   programs.forEach(p=>{
     p.factores={ est:1, planta:1, comp:1, tipo:1 };
+    p.creditosEst = creditosGlobal[p.Nivel];
   });
   buildProgramTable();
   recalc();
@@ -345,14 +355,23 @@ initCharts();
   });
 });
 
-// Sincroniza Créditos/Est. global con todos los programas y la tabla
-document.getElementById('creditosEstGlobal').addEventListener('input', e => {
-  const val = +e.target.value;
-  programs.forEach(p => { p.creditosEst = val; });
-  document.querySelectorAll('.cred').forEach(input => {
-    input.value = val;
+const creditInputs={
+  Doctorado: document.getElementById('credDocGlobal'),
+  'Maestría': document.getElementById('credMaesGlobal'),
+  'Especialización': document.getElementById('credEspGlobal')
+};
+Object.entries(creditInputs).forEach(([nivel,input])=>{
+  input.addEventListener('input',e=>{
+    const val=+e.target.value;
+    creditosGlobal[nivel]=val;
+    programs.forEach(p=>{ if(p.Nivel===nivel) p.creditosEst=val; });
+    document.querySelectorAll('#programTable tbody tr').forEach(tr=>{
+      if(tr.dataset.nivel===nivel){
+        tr.querySelector('.cred').value=val;
+      }
+    });
+    recalc();
   });
-  recalc();
 });
 
 function updateResumenBanner() {
