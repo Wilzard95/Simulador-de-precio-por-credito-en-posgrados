@@ -304,7 +304,14 @@ function handleCSV(e){
         PorcentajePlanta: +(row['%Planta'] || 50),
         Competitividad: (row['Competitividad'] || 'Media'),
         TipoPrograma: row['TipoPrograma'] || row['Tipo Programa'] || row['Tipo_programa'] || 'Profundización',
-        estudiantes: +row['N° EST'] || +row['N° ESTUDIANTES'] || 12,
+        estudiantes: (() => {
+          let est = parseFloat((row['N° EST'] ?? '').toString().replace(',', '.'));
+          if (isNaN(est)) {
+            est = parseFloat((row['N° ESTUDIANTES'] ?? '').toString().replace(',', '.'));
+          }
+          if (isNaN(est)) est = 12;
+          return est;
+        })(),
         creditosEst: parseFloat((row['PromdeCreditos'] ?? '').toString().replace(',', '.')) || 12,
         minCred: nCredMin,
         maxCred: 24,
