@@ -94,8 +94,8 @@
           <th>Créditos/Est.</th>
           <th>MATR.ACTUAL</th>
           <th>MATR.NUEVA</th>
-          <th>MART.NUEVAAJUSTADA</th>
-          <th>Variación % MATRICULA</th>
+            <th>MART.NUEVAAJUSTADA</th>
+            <th>Variación %xCriterios</th>
           <th>Factores<br><small>(Est, Planta, Comp, Tipo)</small></th>
           <th>Recaudo prog. (COP)</th>
         </tr>
@@ -162,7 +162,7 @@ function recalc(){
     p.varPct=((p.valorAjustado-p.ValorCreditoActual)/p.ValorCreditoActual)*100;
     p.recaudo=p.valorAjustado*p.creditosEst*p.estudiantes;
     p.matrNuevaAjustada=p.valorAjustado*p.creditosEst;
-    p.varMatPct = p.matrActual ? ((p.matrNuevaAjustada - p.matrActual) / p.matrActual) * 100 : 0;
+    p.varMatPct = p.matrActual ? ((p.matrActual - p.matrNueva) / p.matrActual) * 100 : 0;
     totalRecaudo+=p.recaudo;
 
     // UI updates
