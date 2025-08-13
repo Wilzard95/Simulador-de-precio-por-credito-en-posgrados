@@ -24,6 +24,7 @@
   legend { font-weight: bold; }
   label { display:block; margin: .25rem 0; }
   input[type="number"] { width: 8rem; }
+  input.est,input.cred{ width: 2.7rem; }
   table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
   th, td { border: 1px solid #ddd; padding: .25rem .5rem; text-align: left; }
   th { background:#eee; position: sticky; top:0; z-index:1; }
@@ -91,6 +92,10 @@
           <th>Variación %</th>
           <th>N° Estudiantes</th>
           <th>Créditos/Est.</th>
+          <th>MATR.ACTUAL</th>
+          <th>MATR.NUEVA</th>
+          <th>MART.NUEVAAJUSTADA</th>
+          <th>Variación % MATRICULA</th>
           <th>Factores<br><small>(Est, Planta, Comp, Tipo)</small></th>
           <th>Recaudo prog. (COP)</th>
         </tr>
@@ -156,6 +161,8 @@ function recalc(){
     p.valorAjustado=Math.round(base*fTotal);
     p.varPct=((p.valorAjustado-p.ValorCreditoActual)/p.ValorCreditoActual)*100;
     p.recaudo=p.valorAjustado*p.creditosEst*p.estudiantes;
+    p.matrNuevaAjustada=p.valorAjustado*p.creditosEst;
+    p.varMatPct = p.matrActual ? ((p.matrNuevaAjustada - p.matrActual) / p.matrActual) * 100 : 0;
     totalRecaudo+=p.recaudo;
 
     // UI updates
@@ -166,6 +173,14 @@ function recalc(){
     bar.style.width=abs+'%';
     bar.style.background=p.varPct>=0? 'var(--rojo)':'var(--verde)';
     tr.querySelector('.varPct').textContent=p.varPct.toFixed(1)+' %';
+    tr.querySelector('.matrActual').textContent=Math.round(p.matrActual).toLocaleString('es-CO');
+    tr.querySelector('.matrNueva').textContent=Math.round(p.matrNueva).toLocaleString('es-CO');
+    tr.querySelector('.matrNuevaAjustada').textContent=Math.round(p.matrNuevaAjustada).toLocaleString('es-CO');
+    const barMat=tr.querySelector('.barMat');
+    const absMat=Math.min(100,Math.abs(p.varMatPct));
+    barMat.style.width=absMat+'%';
+    barMat.style.background=p.varMatPct>=0? 'var(--rojo)':'var(--verde)';
+    tr.querySelector('.varMatPct').textContent=p.varMatPct.toFixed(1)+' %';
     tr.querySelector('.recaudo').textContent=Math.round(p.recaudo).toLocaleString('es-CO');
   });
   updateBalanceChart(totalRecaudo);
@@ -191,6 +206,10 @@ function buildProgramTable(){
       <td><div class="bar"></div><span class="varPct" style="margin-left:.25rem"></span></td>
       <td><input type="number" class="est" min="0" value="${p.estudiantes}"></td>
       <td><input type="number" class="cred" min="${p.minCred}" max="${p.maxCred}" value="${p.creditosEst}"></td>
+      <td class="matrActual"></td>
+      <td class="matrNueva"></td>
+      <td class="matrNuevaAjustada"></td>
+      <td><div class="bar barMat"></div><span class="varMatPct" style="margin-left:.25rem"></span></td>
       <td>
         <input type="number" class="fEstInd" value="${p.factores.est}" step="0.1" min="0.5" max="2" style="width:2.5em;">
         <input type="number" class="fPlantaInd" value="${p.factores.planta}" step="0.1" min="0.5" max="2" style="width:2.5em;">
@@ -280,6 +299,7 @@ function handleCSV(e){
   const file=e.target.files[0];
   if(!file) return;
   Papa.parse(file,{header:true,skipEmptyLines:true,complete:function(res){
+    const parseNum=v=>parseFloat((v??'0').toString().replace(/[$\s.]/g,'').replace(',', '.'))||0;
     programs = res.data.map(row => {
       const nivel = row['Nivel'] || row['Nivel formación'] || row['Nivel de formación'] || 'Desconocido';
       // Normaliza modalidad
@@ -316,6 +336,10 @@ function handleCSV(e){
         minCred: nCredMin,
         maxCred: 24,
         varPct: 0,
+        matrActual: parseNum(row['MATR.ACTUAL']),
+        matrNueva: parseNum(row['MATR.NUEVA']),
+        matrNuevaAjustada: 0,
+        varMatPct: 0,
         factores: {
           est: parseFloat((row['Est'] ?? '1').toString().replace(',', '.')) || 1,
           planta: parseFloat((row['Planta'] ?? '1').toString().replace(',', '.')) || 1,
