@@ -159,6 +159,7 @@ function recalc(){
     const fTotal=manualWeightedFactor(p);
 
     p.valorAjustado=Math.round(base*fTotal);
+    p.matrNueva=p.ValorCreditoActual*p.creditosEst*fTotal;
     p.varPct=((p.valorAjustado-p.ValorCreditoActual)/p.ValorCreditoActual)*100;
     p.recaudo=p.valorAjustado*p.creditosEst*p.estudiantes;
     p.matrNuevaAjustada=p.valorAjustado*p.creditosEst;
@@ -337,7 +338,7 @@ function handleCSV(e){
         maxCred: 24,
         varPct: 0,
         matrActual: parseNum(row['MATR.ACTUAL']),
-        matrNueva: parseNum(row['MATR.NUEVA']),
+        matrNueva: 0,
         matrNuevaAjustada: 0,
         varMatPct: 0,
         factores: {
