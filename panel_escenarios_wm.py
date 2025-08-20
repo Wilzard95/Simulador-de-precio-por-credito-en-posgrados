@@ -174,10 +174,20 @@ df_calc["Delta_recaudo_%"] = np.where(df_calc["Recaudo_actual"] == 0, 0, df_calc
 #  MÉTRICAS Y VISTAS
 # =========================
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Recaudo actual", f"{df_calc['Recaudo_actual'].sum():,.0f}")
-c2.metric("Recaudo nuevo",  f"{df_calc['Recaudo_nuevo'].sum():,.0f}")
+
+rec_actual_total = df_calc["Recaudo_actual"].sum()
+rec_nuevo_total = df_calc["Recaudo_nuevo"].sum()
+
+rec_actual_desc = rec_actual_total * 0.92
+rec_nuevo_desc = rec_nuevo_total * 0.92
+
+c1.metric("Recaudo actual", f"{rec_actual_total:,.0f}")
+c1.metric("Recaudo actual - Becas y Descuentos", f"{rec_actual_desc:,.0f}")
+c2.metric("Recaudo nuevo",  f"{rec_nuevo_total:,.0f}")
+c2.metric("Recaudo nuevo - Becas y Descuentos", f"{rec_nuevo_desc:,.0f}")
+
 delta_abs = df_calc["Delta_recaudo"].sum()
-base_sum  = df_calc["Recaudo_actual"].sum()
+base_sum  = rec_actual_total
 delta_pct = 0 if base_sum == 0 else delta_abs / base_sum
 c3.metric("Δ Recaudo (COP)", f"{delta_abs:,.0f}")
 c4.metric("Δ Recaudo (%)",   f"{delta_pct*100:,.2f}%")
