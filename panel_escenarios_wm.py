@@ -124,15 +124,6 @@ with st.expander("Mapeo actual"):
 # =========================
 #  PARÁMETROS DEL MODELO
 # =========================
-st.sidebar.header("Créditos mínimos y mezcla por nivel")
-min_doc = st.sidebar.number_input("Mín. créditos Doctorado", 0, 40, 8); pmin_doc = st.sidebar.slider("% Doc en mínimos", 0, 100, 0) / 100
-min_ma  = st.sidebar.number_input("Mín. créditos Maestría",  0, 40, 7); pmin_ma  = st.sidebar.slider("% Mtr en mínimos", 0, 100, 30) / 100
-min_esp = st.sidebar.number_input("Mín. créditos Especialización", 0, 40, 8); pmin_esp = st.sidebar.slider("% Esp en mínimos", 0, 100, 40) / 100
-
-st.sidebar.header("Créditos normales (override por nivel; 0 = usar PromdeCreditos)")
-norm_doc = st.sidebar.number_input("Normales Doc", 0, 40, 0)
-norm_ma  = st.sidebar.number_input("Normales Mtr", 0, 40, 0)
-norm_esp = st.sidebar.number_input("Normales Esp", 0, 40, 0)
 
 # =========================
 #  PARSEO NUMÉRICO ROBUSTO
@@ -158,34 +149,6 @@ def to_number_series(series):
     return pd.to_numeric(s, errors="coerce")
 
 # =========================
-#  FUNCIONES DEL MODELO
-# =========================
-def mult_modalidad(m):
-    s = str(m).strip().lower()
-    if "virt" in s:   return 0.70
-    if "hib" in s or "íbr" in s or "hí" in s: return 0.85
-    if "medico" in s or "médico" in s: return 1.0
-    return 1.0
-
-def split_estudiantes(nivel, prom, n_est):
-    s = str(nivel).strip().lower()
-    if "doctor" in s:
-        norm = norm_doc if norm_doc > 0 else prom
-        n_min = n_est * pmin_doc
-        return n_min, n_est - n_min, min_doc, norm
-    if "maestr" in s:
-        norm = norm_ma if norm_ma > 0 else prom
-        n_min = n_est * pmin_ma
-        return n_min, n_est - n_min, min_ma, norm
-    if "espec" in s:
-        norm = norm_esp if norm_esp > 0 else prom
-        n_min = n_est * pmin_esp
-        return n_min, n_est - n_min, min_esp, norm
-    norm = norm_ma if norm_ma > 0 else prom
-    n_min = n_est * pmin_ma
-    return n_min, n_est - n_min, min_ma, norm
-
-# =========================
 #  CÁLCULO (SIN TOCAR TU CSV)
 # =========================
 df_calc = df.copy()
@@ -200,19 +163,11 @@ MatrAct  = to_number_series(df_calc[col_matr_actual]).fillna(0)
 ValorCredBase = to_number_series(df_calc[col_valor_cred]).fillna(0)
 NEst     = to_number_series(df_calc[col_num_est]).fillna(0)
 
-df_calc["valor_credito_modelo"]   = ValorCredBase * df_calc[col_modalidad].apply(mult_modalidad)
-df_calc["valor_credito_programa"] = df_calc["valor_credito_modelo"] * (0.35*Est + 0.35*Planta + 0.2*Comp + 0.1*Tipo)
-
-split_vals = [split_estudiantes(n, p, ne) for n, p, ne in zip(df_calc[col_nivel], PromCr, NEst)]
-split_df = pd.DataFrame(split_vals, columns=["NEst_min","NEst_norm","Cred_min","Cred_norm"], index=df_calc.index)
-df_calc = pd.concat([df_calc, split_df], axis=1)
-
-df_calc["MATR.NUEVA_min"]  = df_calc["valor_credito_programa"] * df_calc["Cred_min"]
-df_calc["MATR.NUEVA_norm"] = df_calc["valor_credito_programa"] * df_calc["Cred_norm"]
+df_calc["valor_nuevo_credito"] = ValorCredBase * (0.35*Est + 0.35*Planta + 0.2*Comp + 0.1*Tipo)
+df_calc["MATR.NUEVA_CALC"] = df_calc["valor_nuevo_credito"] * PromCr
 df_calc["Recaudo_actual"] = NEst * MatrAct
-df_calc["Recaudo_nuevo"]  = df_calc["NEst_min"] * df_calc["MATR.NUEVA_min"] + df_calc["NEst_norm"] * df_calc["MATR.NUEVA_norm"]
-df_calc["MATR.NUEVA_CALC"] = np.where(NEst == 0, 0, df_calc["Recaudo_nuevo"] / NEst)
-df_calc["Delta_recaudo"]  = df_calc["Recaudo_nuevo"] - df_calc["Recaudo_actual"]
+df_calc["Recaudo_nuevo"] = df_calc["MATR.NUEVA_CALC"] * NEst
+df_calc["Delta_recaudo"] = df_calc["Recaudo_nuevo"] - df_calc["Recaudo_actual"]
 df_calc["Delta_recaudo_%"] = np.where(df_calc["Recaudo_actual"] == 0, 0, df_calc["Delta_recaudo"] / df_calc["Recaudo_actual"])
 
 # =========================
@@ -234,10 +189,9 @@ with st.expander("Control rápido (5 filas): N-EST * MATR.ACTUAL y MATR.NUEVA_CA
     tmp["calc_nuevo"]  = to_number_series(tmp[col_num_est]) * tmp["MATR.NUEVA_CALC"]
     st.dataframe(tmp)
 
-with st.expander("Detalle de mezcla de créditos y recaudo"):
+with st.expander("Detalle de cálculo del nuevo valor"):
     st.dataframe(df_calc[[
-        col_programa, col_nivel, "NEst_min", "Cred_min", "NEst_norm", "Cred_norm",
-        "MATR.NUEVA_min", "MATR.NUEVA_norm", "Recaudo_nuevo"
+        col_programa, col_nivel, "valor_nuevo_credito", "MATR.NUEVA_CALC", "Recaudo_nuevo"
     ]])
 
 st.subheader("Resumen por nivel")

@@ -155,14 +155,13 @@ function recalc(){
     p.factores.comp=+tr.querySelector('.fCompInd').value;
     p.factores.tipo=+tr.querySelector('.fTipoInd').value;
 
-    const base=baseValues[p.Nivel][p.Modalidad];
     const fTotal=manualWeightedFactor(p);
 
-    p.valorAjustado=Math.round(base*fTotal);
-    p.matrNueva=p.ValorCreditoActual*p.creditosEst*fTotal;
+    p.valorAjustado=Math.round(p.ValorCreditoActual*fTotal);
+    p.matrNueva=p.valorAjustado*p.creditosEst;
     p.varPct=((p.valorAjustado-p.ValorCreditoActual)/p.ValorCreditoActual)*100;
-    p.recaudo=p.valorAjustado*p.creditosEst*p.estudiantes;
-    p.matrNuevaAjustada=p.valorAjustado*p.creditosEst;
+    p.recaudo=p.matrNueva*p.estudiantes;
+    p.matrNuevaAjustada=p.matrNueva;
     p.varMatPct = p.matrActual ? ((p.matrActual - p.matrNueva) / p.matrActual) * 100 : 0;
     totalRecaudo+=p.recaudo;
 
@@ -317,11 +316,11 @@ function handleCSV(e){
         Nivel: nivel,
         Modalidad: modalidad,
         ValorCreditoActual: parseFloat(
-  (row['Valorxcrédito'] || '1000000')
+  (row['Valor crédito'] || row['Valorxcrédito'] || row['Valor credito'] || '0')
     .toString()
     .replace(/[$\s.]/g, '')   // quita $ y puntos y espacios
     .replace(',', '.')        // cambia coma decimal por punto
-) || 1000000,
+) || 0,
         PorcentajePlanta: +(row['%Planta'] || 50),
         Competitividad: (row['Competitividad'] || 'Media'),
         TipoPrograma: row['TipoPrograma'] || row['Tipo Programa'] || row['Tipo_programa'] || 'Profundización',
