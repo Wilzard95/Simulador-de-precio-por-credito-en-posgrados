@@ -80,8 +80,8 @@ col_tipo        = select_col("Tipo (ponderador 0–1)", ["tipo"], exclude=exclui
 col_promcred    = select_col("PromdeCreditos", ["prom"], exclude=[col_num_est])
 col_matricula   = select_col("MATRÍCULA", ["matr","matríc","matricu"], exclude=[col_num_est])
 col_matr_actual = select_col(
-    "MATR.ACTUAL (MATRÍCULA * salario mínimo)",
-    ["matr","actual","matrícula","matricula"],
+    "MATR.ACTUAL",
+    ["MATR.ACTUAL","matr",],
     exclude=[col_num_est, col_matricula],
 )
 col_valor_cred  = select_col(
