@@ -81,7 +81,7 @@ col_promcred    = select_col("PromdeCreditos", ["prom"], exclude=[col_num_est])
 col_matricula   = select_col("MATRÍCULA", ["matr","matríc","matricu"], exclude=[col_num_est])
 col_matr_actual = select_col(
     "MATR.ACTUAL (MATRÍCULA * salario mínimo)",
-    ["matr","actual","matrícula","matricula","costo/actual"],
+    ["matr","actual","matrícula","matricula"],
     exclude=[col_num_est, col_matricula],
 )
 col_valor_cred  = select_col(
