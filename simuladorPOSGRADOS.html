@@ -325,7 +325,7 @@ function handleCSV(e){
         Competitividad: (row['Competitividad'] || 'Media'),
         TipoPrograma: row['TipoPrograma'] || row['Tipo Programa'] || row['Tipo_programa'] || 'Profundización',
         estudiantes: (() => {
-          let est = parseFloat((row['N° EST'] ?? '').toString().replace(',', '.'));
+          let est = parseFloat((row['N-EST'] ?? '').toString().replace(',', '.'));
           if (isNaN(est)) {
             est = parseFloat((row['N° ESTUDIANTES'] ?? '').toString().replace(',', '.'));
           }
@@ -467,3 +467,4 @@ function updateResumenBanner() {
 </script>
 </body>
 </html>
+
