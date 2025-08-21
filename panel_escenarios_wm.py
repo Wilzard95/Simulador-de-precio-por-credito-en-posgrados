@@ -86,7 +86,7 @@ col_matr_actual = select_col(
 )
 col_valor_cred  = select_col(
     "Valor crédito",
-    ["valor", "crédito", "credito"],
+    ["Valor crédito"],
     exclude=[col_num_est, col_promcred, col_matr_actual, col_matricula],
 )
 
