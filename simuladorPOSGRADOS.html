@@ -163,7 +163,7 @@ function recalc(){
     p.recaudo=p.matrNueva*p.estudiantes;
     p.matrNuevaAjustada=p.matrNueva;
     p.varMatPct = p.matrActual ? ((p.matrActual - p.matrNueva) / p.matrActual) * 100 : 0;
-    totalRecaudo+=p.recaudo;
+    totalRecaudo+=Math.round(p.recaudo);
 
     // UI updates
     tr.querySelector('.valorActual').textContent=p.ValorCreditoActual.toLocaleString('es-CO');
@@ -315,24 +315,18 @@ function handleCSV(e){
         Programa: row['Programa'] || row['PROGRAMA'] || row['Facultad y Programa'] || row['Programa Académico'],
         Nivel: nivel,
         Modalidad: modalidad,
-        ValorCreditoActual: parseFloat(
-  (row['Valor crédito'] || row['Valorxcrédito'] || row['Valor credito'] || '0')
-    .toString()
-    .replace(/[$\s.]/g, '')   // quita $ y puntos y espacios
-    .replace(',', '.')        // cambia coma decimal por punto
-) || 0,
-        PorcentajePlanta: +(row['%Planta'] || 50),
+        ValorCreditoActual: parseNum(row['Valor crédito'] || row['Valorxcrédito'] || row['Valor credito']),
+        PorcentajePlanta: parseNum(row['%Planta']) || 50,
         Competitividad: (row['Competitividad'] || 'Media'),
         TipoPrograma: row['TipoPrograma'] || row['Tipo Programa'] || row['Tipo_programa'] || 'Profundización',
         estudiantes: (() => {
-          let est = parseFloat((row['N-EST'] ?? '').toString().replace(',', '.'));
-          if (isNaN(est)) {
-            est = parseFloat((row['N° ESTUDIANTES'] ?? '').toString().replace(',', '.'));
+          let est = parseNum(row['N-EST']);
+          if (!est) {
+            est = parseNum(row['N° ESTUDIANTES']);
           }
-          if (isNaN(est)) est = 12;
-          return est;
+          return est || 12;
         })(),
-        creditosEst: parseFloat((row['PromdeCreditos'] ?? '').toString().replace(',', '.')) || 12,
+        creditosEst: parseNum(row['PromdeCreditos']) || 12,
         minCred: nCredMin,
         maxCred: 24,
         varPct: 0,
@@ -341,10 +335,10 @@ function handleCSV(e){
         matrNuevaAjustada: 0,
         varMatPct: 0,
         factores: {
-          est: parseFloat((row['Est'] ?? '1').toString().replace(',', '.')) || 1,
-          planta: parseFloat((row['Planta'] ?? '1').toString().replace(',', '.')) || 1,
-          comp: parseFloat((row['Comp'] ?? '1').toString().replace(',', '.')) || 1,
-          tipo: parseFloat((row['Tipo'] ?? '1').toString().replace(',', '.')) || 1
+          est: parseNum(row['Est']) || 1,
+          planta: parseNum(row['Planta']) || 1,
+          comp: parseNum(row['Comp']) || 1,
+          tipo: parseNum(row['Tipo']) || 1
         }
       };
     });
