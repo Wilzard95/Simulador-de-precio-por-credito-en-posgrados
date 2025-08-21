@@ -132,7 +132,7 @@ const metaInput=document.getElementById('meta');
 document.getElementById('resetBtn').addEventListener('click',resetAll);
 document.getElementById('csvInput').addEventListener('change',handleCSV);
 metaInput.addEventListener('input', () => {
-  updateBalanceChart(programs.reduce((sum, p) => sum + (p.recaudo || 0), 0));
+  updateBalanceChart(programs.reduce((sum, p) => sum + Math.round(p.recaudo || 0), 0));
 });
 
 // =================== FUNCIÓN DE PONDERACIÓN ===================
@@ -143,7 +143,6 @@ function manualWeightedFactor(p){
 // =================== RECÁLCULO PRINCIPAL ===================
 function recalc(){
   const tbody=document.querySelector('#programTable tbody');
-  let totalRecaudo=0;
   tbody.querySelectorAll('tr').forEach(tr=>{
     const idx=+tr.dataset.idx;
     const p=programs[idx];
@@ -163,7 +162,6 @@ function recalc(){
     p.recaudo=p.matrNueva*p.estudiantes;
     p.matrNuevaAjustada=p.matrNueva;
     p.varMatPct = p.matrActual ? ((p.matrActual - p.matrNueva) / p.matrActual) * 100 : 0;
-    totalRecaudo+=Math.round(p.recaudo);
 
     // UI updates
     tr.querySelector('.valorActual').textContent=p.ValorCreditoActual.toLocaleString('es-CO');
@@ -183,6 +181,7 @@ function recalc(){
     tr.querySelector('.varMatPct').textContent=p.varMatPct.toFixed(1)+' %';
     tr.querySelector('.recaudo').textContent=Math.round(p.recaudo).toLocaleString('es-CO');
   });
+  const totalRecaudo = programs.reduce((sum,p)=>sum + Math.round(p.recaudo || 0),0);
   updateBalanceChart(totalRecaudo);
   updateNivelesChart();
   updateResumenBanner();
