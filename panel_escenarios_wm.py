@@ -125,6 +125,26 @@ with st.expander("Mapeo actual"):
 #  PARÁMETROS DEL MODELO
 # =========================
 
+st.sidebar.header("Créditos mínimos por nivel")
+
+def panel_min_creditos(nivel, creditos_defecto):
+    with st.sidebar.expander(nivel, expanded=False):
+        min_cred = st.number_input(
+            f"Créditos mínimos {nivel.lower()}", min_value=0, value=creditos_defecto
+        )
+        pct_min = st.slider(
+            f"% estudiantes con mínimo en {nivel.lower()}",
+            min_value=0,
+            max_value=100,
+            value=0,
+            step=1,
+        )
+        return min_cred, pct_min
+
+min_doc, pct_doc = panel_min_creditos("Doctorado", 10)
+min_mae, pct_mae = panel_min_creditos("Maestría", 7)
+min_esp, pct_esp = panel_min_creditos("Especialización", 7)
+
 # =========================
 #  PARSEO NUMÉRICO ROBUSTO
 # =========================
@@ -166,7 +186,28 @@ NEst     = to_number_series(df_calc[col_num_est]).fillna(0)
 df_calc["valor_nuevo_credito"] = ValorCredBase * (0.35*Est + 0.35*Planta + 0.2*Comp + 0.1*Tipo)
 df_calc["MATR.NUEVA_CALC"] = df_calc["valor_nuevo_credito"] * PromCr
 df_calc["Recaudo_actual"] = NEst * MatrAct
-df_calc["Recaudo_nuevo"] = df_calc["MATR.NUEVA_CALC"] * NEst
+
+# Calcular recaudo nuevo considerando estudiantes con créditos mínimos
+df_calc["Recaudo_nuevo"] = 0.0
+nivel_clean = df_calc[col_nivel].astype(str).str.strip().str.lower()
+
+def calcula_recaudo(mask, min_cred, pct):
+    if pct == 0:
+        df_calc.loc[mask, "Recaudo_nuevo"] = df_calc.loc[mask, "valor_nuevo_credito"] * (NEst[mask] * PromCr[mask])
+        return
+    n_est = NEst[mask]
+    val_cred = df_calc.loc[mask, "valor_nuevo_credito"]
+    prom_cr = PromCr[mask]
+    est_min = np.floor(n_est * pct / 100).astype(int)
+    est_full = n_est - est_min
+    df_calc.loc[mask, "Recaudo_nuevo"] = val_cred * (est_min * min_cred + est_full * prom_cr)
+
+calcula_recaudo(nivel_clean == "doctorado", min_doc, pct_doc)
+calcula_recaudo(nivel_clean == "maestría", min_mae, pct_mae)
+calcula_recaudo(nivel_clean == "maestria", min_mae, pct_mae)
+calcula_recaudo(nivel_clean == "especialización", min_esp, pct_esp)
+calcula_recaudo(nivel_clean == "especializacion", min_esp, pct_esp)
+
 df_calc["Delta_recaudo"] = df_calc["Recaudo_nuevo"] - df_calc["Recaudo_actual"]
 df_calc["Delta_recaudo_%"] = np.where(df_calc["Recaudo_actual"] == 0, 0, df_calc["Delta_recaudo"] / df_calc["Recaudo_actual"])
 
@@ -193,11 +234,45 @@ c3.metric("Δ Recaudo (COP)", f"{delta_abs:,.0f}")
 c4.metric("Δ Recaudo (%)",   f"{delta_pct*100:,.2f}%")
 
 # Auditoría rápida para verificar fórmulas fila a fila
-with st.expander("Control rápido (5 filas): N-EST * MATR.ACTUAL y MATR.NUEVA_CALC"):
-    tmp = df_calc[[col_programa, col_num_est, col_matr_actual, "MATR.NUEVA_CALC"]].head(5).copy()
+with st.expander("Control rápido (5 filas): N-EST * MATR.ACTUAL y Recaudo_nuevo"):
+    tmp = df_calc[[
+        col_programa,
+        col_num_est,
+        col_matr_actual,
+        col_promcred,
+        col_nivel,
+        "valor_nuevo_credito",
+        "Recaudo_nuevo",
+    ]].head(5).copy()
     tmp["calc_actual"] = to_number_series(tmp[col_num_est]) * to_number_series(tmp[col_matr_actual])
-    tmp["calc_nuevo"]  = to_number_series(tmp[col_num_est]) * tmp["MATR.NUEVA_CALC"]
-    st.dataframe(tmp)
+
+    def calc_recaudo_row(row):
+        nivel = str(row[col_nivel]).strip().lower()
+        if nivel == "doctorado":
+            min_c, pct = min_doc, pct_doc
+        elif nivel in ("maestría", "maestria"):
+            min_c, pct = min_mae, pct_mae
+        elif nivel in ("especialización", "especializacion"):
+            min_c, pct = min_esp, pct_esp
+        else:
+            min_c, pct = 0, 0
+        n_est = to_number_series(pd.Series(row[col_num_est])).iloc[0]
+        prom_cr = to_number_series(pd.Series(row[col_promcred])).iloc[0]
+        val_cred = row["valor_nuevo_credito"]
+        est_min = int(np.floor(n_est * pct / 100))
+        est_full = n_est - est_min
+        return val_cred * (est_min * min_c + est_full * prom_cr)
+
+    tmp["calc_nuevo"] = tmp.apply(calc_recaudo_row, axis=1)
+    st.dataframe(tmp[[
+        col_programa,
+        col_num_est,
+        col_matr_actual,
+        "valor_nuevo_credito",
+        "Recaudo_nuevo",
+        "calc_actual",
+        "calc_nuevo",
+    ]])
 
 with st.expander("Detalle de cálculo del nuevo valor"):
     st.dataframe(df_calc[[
