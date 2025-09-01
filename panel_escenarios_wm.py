@@ -191,6 +191,53 @@ df_calc["Recaudo_actual"] = NEst * MatrAct
 df_calc["Recaudo_nuevo"] = 0.0
 nivel_clean = df_calc[col_nivel].astype(str).str.strip().str.lower()
 
+# =========================
+#  SILLAS VACÍAS POR NIVEL
+# =========================
+# Valor base promedio por nivel para fijar el valor inicial de la silla vacía
+base_doc = ValorCredBase[nivel_clean == "doctorado"].mean()
+base_mae = ValorCredBase[nivel_clean.isin(["maestría", "maestria"])].mean()
+base_esp = ValorCredBase[nivel_clean.isin(["especialización", "especializacion"])].mean()
+
+def panel_sillas_vacias(nivel, valor_defecto):
+    with st.sidebar.expander(nivel, expanded=False):
+        valor = st.number_input(
+            f"Valor de sillas vacías {nivel.lower()}",
+            min_value=0.0,
+            value=float(valor_defecto),
+        )
+        num = st.number_input(
+            f"Número de sillas vendidas {nivel.lower()}",
+            min_value=0,
+            value=0,
+            step=1,
+        )
+        cred = st.number_input(
+            f"Número de créditos {nivel.lower()}",
+            min_value=0,
+            value=4,
+            step=1,
+        )
+        return valor, num, cred
+
+st.sidebar.header("Sillas vacías por nivel")
+
+val_doc, s_doc, c_doc = panel_sillas_vacias(
+    "Doctorado", 0 if np.isnan(base_doc) else base_doc / 2
+)
+val_mae, s_mae, c_mae = panel_sillas_vacias(
+    "Maestría", 0 if np.isnan(base_mae) else base_mae / 2
+)
+val_esp, s_esp, c_esp = panel_sillas_vacias(
+    "Especialización", 0 if np.isnan(base_esp) else base_esp / 2
+)
+
+rec_sillas_total = (
+    s_doc * c_doc * val_doc
+    + s_mae * c_mae * val_mae
+    + s_esp * c_esp * val_esp
+)
+
 def calcula_recaudo(mask, min_cred, pct):
     if pct == 0:
         df_calc.loc[mask, "Recaudo_nuevo"] = df_calc.loc[mask, "valor_nuevo_credito"] * (NEst[mask] * PromCr[mask])
@@ -217,21 +264,26 @@ df_calc["Delta_recaudo_%"] = np.where(df_calc["Recaudo_actual"] == 0, 0, df_calc
 c1, c2, c3, c4 = st.columns(4)
 
 rec_actual_total = df_calc["Recaudo_actual"].sum()
-rec_nuevo_total = df_calc["Recaudo_nuevo"].sum()
+rec_nuevo_total = df_calc["Recaudo_nuevo"].sum() + rec_sillas_total
 
 rec_actual_desc = rec_actual_total * 0.92
 rec_nuevo_desc = rec_nuevo_total * 0.92
 
 c1.metric("Recaudo actual", f"{rec_actual_total:,.0f}")
-c1.metric("Recaudo actual - Becas y Descuentos", f"{rec_actual_desc:,.0f}")
 c2.metric("Recaudo nuevo",  f"{rec_nuevo_total:,.0f}")
-c2.metric("Recaudo nuevo - Becas y Descuentos", f"{rec_nuevo_desc:,.0f}")
-
-delta_abs = df_calc["Delta_recaudo"].sum()
+delta_abs = rec_nuevo_total - rec_actual_total
 base_sum  = rec_actual_total
 delta_pct = 0 if base_sum == 0 else delta_abs / base_sum
 c3.metric("Δ Recaudo (COP)", f"{delta_abs:,.0f}")
 c4.metric("Δ Recaudo (%)",   f"{delta_pct*100:,.2f}%")
+
+c1.metric("Recaudo actual - Becas y Descuentos", f"{rec_actual_desc:,.0f}")
+c2.metric("Recaudo nuevo - Becas y Descuentos", f"{rec_nuevo_desc:,.0f}")
+delta_abs_desc = rec_nuevo_desc - rec_actual_desc
+base_desc = rec_actual_desc
+delta_pct_desc = 0 if base_desc == 0 else delta_abs_desc / base_desc
+c3.metric("Δ Recaudo (COP) - Becas y Descuentos", f"{delta_abs_desc:,.0f}")
+c4.metric("Δ Recaudo (%) - Becas y Descuentos",   f"{delta_pct_desc*100:,.2f}%")
 
 # Auditoría rápida para verificar fórmulas fila a fila
 with st.expander("Control rápido (5 filas): N-EST * MATR.ACTUAL y Recaudo_nuevo"):
